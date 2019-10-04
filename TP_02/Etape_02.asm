@@ -1,4 +1,4 @@
-VALUE		equ	 	96
+VALUE		equ	 	-5
 
 			org 	$4
 
