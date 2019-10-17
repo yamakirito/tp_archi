@@ -6,12 +6,14 @@ vector_001	dc.l	Main
 			
 Main		movea.l	#String,a0
 			jsr		RemoveSpace
-			movea.l	#Stringtest,a2
+			
+			jsr 	IsCharError
 			
 			illegal
 
-RemoveSpace	movem.l	d0/a0/a1,-(a7)
+RemoveSpace	movea.l	#String,a1
 			clr.l	d0
+			movem.l	d0/a0/a1,-(a7)
 
 \loop		move.b	(a0)+,d0
 			beq 	\quit
@@ -22,8 +24,44 @@ RemoveSpace	movem.l	d0/a0/a1,-(a7)
 			move.b	d0,(a1)+
 			bra		\loop
 
-\quit		movem.l	(a7)+,d0/a1/a0
+\quit		move.b	#0,(a1)+
+			movem.l	(a7)+,d0/a0/a1
+			movea.l	#0,a1
+			rts
+			
+IsCharError	clr.l	d0
+			movem.l	d0/a0,-(a7)
+
+\loop		move.b	(a0)+,d0
+			beq		\false
+			
+			cmp.b	#'0',d0
+			blo		\true
+			
+			cmp.b	#'9',d0
+			bhi		\true
+			
+			bra		\loop
+
+\true		ori.b	#%00000100,ccr
+			bra 	\quit
+
+\false		andi.b	#%11111011,ccr
+			bra		\quit
+	
+\quit		movem.l (a7)+,d0/a0
+			rts
+			
+IsMaxError	clr.l 	d0
+			clr.l	d1
+			movem.l d0/d1/a0,-(a7)
+			
+\loop		move.b	(a0)+,d1
+			beq 	\quit
+			
+\quit 		movem.l	(a7)+,d0/d1/a0
 			rts
 
 String		dc.b	" 5 +  12 ",0
-Stringtest	dc.b	"5+12"
+String1		dc.b	"56",0
+String2		dc.b	"3d42",0
