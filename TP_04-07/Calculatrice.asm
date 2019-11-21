@@ -19,7 +19,7 @@ Main		movea.l	#sInput,a0
 			jsr		Print
 			
 			movea.l	#sBuffer,a0
-			addq.b	#1,d2
+			addq.b	#2,d2
 			move.l	#60000,d3
 			move.l	#8000,d4
 			jsr		GetInput
@@ -52,7 +52,7 @@ RemoveSpace	movem.l	d0/a0/a1,-(a7)
 			movea.l	a0,a1
 
 \loop		move.b	(a0)+,d0
-			;beq 	\quit
+			beq 	\quit
 			
 			cmpi.b	#' ',d0
 			beq		\loop
