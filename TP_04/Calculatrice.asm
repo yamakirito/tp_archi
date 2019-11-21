@@ -13,26 +13,46 @@ vector_001	dc.l	Main
 			
 			org		$500
 			
-Main		lea 	sTest,a0
-			move.b	#24,d1
-			move.b	#20,d2
+Main		movea.l	#sInput,a0
+			clr.b	d1
+			clr.b	d2
 			jsr		Print
 			
-			movea.l	cTest,a0
-			jsr		GetNum
+			movea.l	#sBuffer,a0
+			addq.b	#1,d2
+			move.l	#60000,d3
+			move.l	#8000,d4
+			jsr		GetInput
 			
-			illegal
+			jsr		RemoveSpace			
+			movea.l	#sResult,a0
+			addq.b	#2,d2
+			jsr 	Print
+			
+			addq.b	#2,d2
+			
+			movea.l	#sBuffer,a0
+			jsr 	GetExpr
+			bne		\error
+			
+\noError	jsr		Itoa
+			jsr 	Print
+			bra		\quit
+
+\error		movea.l	#sError,a0
+			jsr		Print
+			
+\quit		illegal
 			
 			; ==============================
 			; Sous-programmes
 			; ==============================
 
-RemoveSpace	movea.l	#String,a1
-			clr.l	d0
-			movem.l	d0/a0/a1,-(a7)
+RemoveSpace	movem.l	d0/a0/a1,-(a7)
+			movea.l	a0,a1
 
 \loop		move.b	(a0)+,d0
-			beq 	\quit
+			;beq 	\quit
 			
 			cmpi.b	#' ',d0
 			beq		\loop
@@ -40,14 +60,11 @@ RemoveSpace	movea.l	#String,a1
 			move.b	d0,(a1)+
 			bra		\loop
 
-\quit		move.b	#0,(a1)+
-			movem.l	(a7)+,d0/a0/a1
-			movea.l	#0,a1
+\quit		movem.l	(a7)+,d0/a0/a1
 			rts
 			
 			
-IsCharError	clr.l	d0
-			movem.l	d0/a0,-(a7)
+IsCharError	movem.l	d0/a0,-(a7)
 
 \loop		move.b	(a0)+,d0
 			beq		\false
@@ -56,9 +73,7 @@ IsCharError	clr.l	d0
 			blo		\true
 			
 			cmpi.b	#'9',d0
-			bhi		\true
-			
-			bra		\loop
+			bls		\loop
 
 \true		ori.b	#%00000100,ccr
 			bra 	\quit
@@ -153,21 +168,24 @@ Convert		tst.b 	(a0)
 			rts
 			
 			
-Print		movem.l	a0/d0,-(a7)
+Print		movem.l	a0/d0-d1,-(a7)
 
 \loop		move.b	(a0)+,d0
 			beq		\quit
 
-			addq.b	#1,d1
-
 			jsr 	PrintChar
+
+			addq.b	#1,d1
 			bra 	\loop
 
-\quit		movem.l	(a7)+,a0/d0
+\quit		movem.l	(a7)+,a0/d0-d1
 			rts
 
 
 PrintChar	incbin	"PrintChar.bin"
+
+
+GetInput	incbin	"GetInput.bin"
 
 
 NextOp		tst.b	(a0)
@@ -191,32 +209,110 @@ NextOp		tst.b	(a0)
 \quit		rts
 
 
-GetNum		clr.l 	d0
-			movem.l	a1/a2/d1,-(a7)
+GetNum		movem.l	a1-a2/d1,-(a7)
 			
 			movea.l	a0,a1
 			jsr		NextOp
 			movea.l	a0,a2
 						
 			move.b	(a2),d1
-			move.b	#0,(a0)
+			clr.b	(a2)
 			
 			movea.l	a1,a0
 			jsr		Convert
-			beq		\false
+			beq		\true
+			
+\false		move.b	d1,(a2)
+			andi.b 	#%11111011,ccr
+			bra 	\quit
 			
 \true		move.b	d1,(a2)
 			movea.l	a2,a0
-			movem.l	(a7)+,a1/a2/d1
+			ori.b	#%00000100,ccr
+
+\quit		movem.l	(a7)+,a1-a2/d1
 			rts
 			
-\false		movem.l	(a7)+,a1/a2/d1
-			rts
+			
+GetExpr		movem.l	a0/d1-d2,-(a7)
+			jsr 	GetNum
+			bne 	\false
+			move.l	d0,d1
+			
+\loop		move.b 	(a0)+,d2
+			beq		\true
+			
+			jsr		GetNum
+			bne 	\false
+			
+			cmp.b	#'+',d2
+			add.l	d0,d1
+			bra 	\loop
+			
+			cmp.b	#'-',d2
+			sub.l	d0,d1
+			bra 	\loop
+			
+			cmp.b	#'*',d2
+			muls.w	d0,d1
+			bra		\loop
+			
+			tst.w	d0
+			beq		\false
+			divs.w	d0,d1
+			ext.l	d1
+			bra		\loop
 
+\false		andi.b 	#%11111011,ccr
+			bra 	\quit
+
+\true		move.l	d1,d0
+			ori.b	#%00000100,ccr
+
+\quit		movem.l	(a7)+,a0/d1-d2
+			rts
+			
+			
+Uitoa		movem.l	a0/d0,-(a7)
+			clr.w	-(a7)
+			
+\loop		andi.l	#$ffff,d0
+			divu.w	#10,d0
+			swap	d0
+			
+			addi.b	#'0',d0
+			move.w	d0,-(a7)
+			swap	d0
+			
+			tst.w	d0
+			bne		\loop
+			
+\dequeue	move.w	(a7)+,d0
+			move.b	d0,(a0)+
+			bne		\dequeue
+			
+			movem.l	(a7)+,a0/d0
+			rts
+			
+			
+Itoa		movem.l	a0/d0,-(a7)
+			tst.w 	d0
+			bpl		\positive
+			
+\negative	move.b	#'-',(a0)+
+			neg.w	d0
+			
+\positive	jsr		Uitoa
+			
+\quit		movem.l	(a7)+,a0/d0
+			rts
+			
+			
 			; ==============================
 			; Données
 			; ==============================
 
-sTest		dc.b	"Hello World",0
-String		dc.b	" 5 +  12 ",0
-cTest		dc.b	"104+9*2-3",0
+sInput		dc.b	"Veuillez saisir une expression :",0
+sResult		dc.b	"Resultat :",0
+sError		dc.b	"Erreur",0
+sBuffer		ds.b	60
